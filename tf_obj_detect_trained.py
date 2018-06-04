@@ -7,7 +7,6 @@ import tensorflow as tf
 import zipfile
 import scipy.misc
 
-# 加入 OpenCV 模組
 import cv2
 
 from collections import defaultdict
@@ -15,15 +14,11 @@ from io import StringIO
 from matplotlib import pyplot as plt
 from PIL import Image
 
-if tf.__version__ != '1.4.0':
-  raise ImportError('Please upgrade your tensorflow installation to v1.4.0!')
 
-# 建立 VideoCapture 物件
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 
-# 設定擷取的畫面解析度
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 960)
+cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
 
 sys.path.append("..")
 
@@ -64,23 +59,21 @@ def load_image_into_numpy_array(image):
 
 with detection_graph.as_default():
   with tf.Session(graph=detection_graph) as sess:
-    # 使用無窮迴圈，持續擷取網路攝影機影像
-    while True:
-      # 讀取一個影格
+    while (cap.isOpened()):
       ret, image_np = cap.read()
+      if ret == True:
+      	image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
+      	detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
+      	detection_scores = detection_graph.get_tensor_by_name('detection_scores:0')
+     	detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
+      	num_detections = detection_graph.get_tensor_by_name('num_detections:0')
+      	image_np_expanded = np.expand_dims(image_np, axis=0)
 
-      image_tensor = detection_graph.get_tensor_by_name('image_tensor:0')
-      detection_boxes = detection_graph.get_tensor_by_name('detection_boxes:0')
-      detection_scores = detection_graph.get_tensor_by_name('detection_scores:0')
-      detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
-      num_detections = detection_graph.get_tensor_by_name('num_detections:0')
-      image_np_expanded = np.expand_dims(image_np, axis=0)
-
-      (boxes, scores, classes, num) = sess.run(
+      	(boxes, scores, classes, num) = sess.run(
           [detection_boxes, detection_scores, detection_classes, num_detections],
           feed_dict={image_tensor: image_np_expanded})
 
-      vis_util.visualize_boxes_and_labels_on_image_array(
+      	vis_util.visualize_boxes_and_labels_on_image_array(
           image_np,
           np.squeeze(boxes),
           np.squeeze(classes).astype(np.int32),
@@ -88,8 +81,8 @@ with detection_graph.as_default():
           category_index,
           use_normalized_coordinates=True,
           line_thickness=4)
-      # 以 OpenCV 視窗即時顯示辨識結果
-      cv2.imshow('object detection', image_np)
-      if cv2.waitKey(25) & 0xFF == ord('q'):
-        cv2.destroyAllWindows()
-        break
+      
+        cv2.imshow('object detection', image_np)
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+          cv2.destroyAllWindows()
+          break
